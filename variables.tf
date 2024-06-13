@@ -1,21 +1,24 @@
 variable "aws_region" {
   type    = string
-  default = "us-west-1"
+  default = "us-west-2"
 }
 
 variable "aws_s3_bucket" {
   description = "S3 Bucket for Zip"
 }
 
-locals {
-  routes = {
-    "index" : {
-      name : "index"
-      http_verb : "GET"
-      path = "/"
-      policies : "logs:List*",
-      resource : "arn:aws:logs:*:*:*"
+variable "vpc_cidr" {
+  description = "VPC CIDR"
+  default     = "10.0.0.0/16"
+}
 
-    }
-  }
+variable "subnets" {
+  description = "Subnets"
+  type        = list(string)
+  default     = ["10.0.1.0/24", "10.0.2.0/24"]
+}
+
+variable "instance_type" {
+  description = "EC2 instance type"
+  default     = "t2.micro"
 }
