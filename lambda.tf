@@ -16,7 +16,7 @@ resource "aws_lambda_function" "lambda" {
   function_name    = each.value.name
   s3_bucket        = var.aws_s3_bucket
   s3_key           = aws_s3_object.lambda.key
-  runtime          = "nodejs14.x"
+  runtime          = "nodejs20.x"
   handler          = "${each.value.name}.handler"
   source_code_hash = data.archive_file.lambda.output_base64sha256
   role             = aws_iam_role.lambda[each.value.name].arn
