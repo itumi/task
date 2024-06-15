@@ -1,19 +1,11 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-  backend "s3" {
-    bucket = "la-pa"
-    region = "us-west-2"
-    key    = "terraform.tfstate"
-  }
-}
-
 provider "aws" {
   region = var.aws_region
+}
+
+# Random string for unique naming
+resource "random_string" "suffix" {
+  length  = 8
+  special = false
 }
 
 # VPC
@@ -77,7 +69,7 @@ resource "aws_security_group" "main" {
 
 # Load Balancer
 resource "aws_lb" "app" {
-  name               = "app-lb"
+  name               = "${var.app_name}-lb-${random_string.suffix.result}"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.main.id]
@@ -87,7 +79,7 @@ resource "aws_lb" "app" {
 }
 
 resource "aws_lb_target_group" "app" {
-  name     = "app-tg"
+  name     = "${var.app_name}-tg-${random_string.suffix.result}"
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
@@ -111,8 +103,8 @@ resource "aws_lb_listener" "app" {
 
 # Auto Scaling Group
 resource "aws_launch_configuration" "app" {
-  name          = "app-launch-config"
-  image_id      = "ami-0c55b159cbfafe1f0"  # Update to your AMI ID
+  name          = "app-launch-config-${random_string.suffix.result}"
+  image_id      = data.aws_ami.latest_amazon_linux.id
   instance_type = var.instance_type
 
   security_groups = [aws_security_group.main.id]

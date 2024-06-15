@@ -33,3 +33,8 @@ variable "allowed_ports" {
   type        = list(number)
   default     = [80, 443]
 }
+
+variable "app_name" {
+  description = "Name of the application"
+  default     = "myapp"
+}
