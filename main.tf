@@ -1,23 +1,55 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+  backend "s3" {
+    bucket = "la-pa"
+    region = "us-west-2"
+    key    = "terraform.tfstate"
+  }
+}
+
 provider "aws" {
   region = var.aws_region
 }
 
-module "vpc" {
-  source  = "./modules/vpc"
-  vpc_cidr = var.vpc_cidr
+# VPC
+resource "aws_vpc" "main" {
+  cidr_block = var.vpc_cidr
 }
 
-module "subnets" {
-  source = "./modules/subnets"
-  vpc_id = module.vpc.vpc_id
-  subnets = var.subnets
+# Subnets
+resource "aws_subnet" "main" {
+  count = length(var.subnets)
+  vpc_id = aws_vpc.main.id
+  cidr_block = element(var.subnets, count.index)
 }
 
-module "security_group" {
-  source             = "./modules/security_group"
-  vpc_id             = module.vpc.vpc_id
-  security_group_name = var.security_group_name
-  allowed_ports      = var.allowed_ports
+# Security Group
+resource "aws_security_group" "main" {
+  name        = var.security_group_name
+  description = "Allow web traffic"
+  vpc_id      = aws_vpc.main.id
+
+  dynamic "ingress" {
+    for_each = var.allowed_ports
+    content {
+      from_port   = ingress.value
+      to_port     = ingress.value
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 # Launch Configuration
@@ -25,7 +57,7 @@ resource "aws_launch_configuration" "app" {
   name          = "app-launch-configuration"
   image_id      = var.ami_id
   instance_type = var.instance_type
-  security_groups = [module.security_group.security_group_id]
+  security_groups = [aws_security_group.main.id]
 
   lifecycle {
     create_before_destroy = true
@@ -38,7 +70,7 @@ resource "aws_autoscaling_group" "app" {
   min_size             = var.min_size
   max_size             = var.max_size
   desired_capacity     = var.desired_capacity
-  vpc_zone_identifier  = module.subnets.subnet_ids
+  vpc_zone_identifier  = aws_subnet.main[*].id
 
   tag {
     key                 = "Name"
@@ -69,16 +101,17 @@ resource "aws_autoscaling_policy" "scale_down" {
   autoscaling_group_name = aws_autoscaling_group.app.name
 }
 
+# Outputs
 output "vpc_id" {
-  value = module.vpc.vpc_id
+  value = aws_vpc.main.id
 }
 
 output "subnet_ids" {
-  value = module.subnets.subnet_ids
+  value = aws_subnet.main[*].id
 }
 
 output "security_group_id" {
-  value = module.security_group.security_group_id
+  value = aws_security_group.main.id
 }
 
 output "autoscaling_group_id" {
