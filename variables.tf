@@ -15,7 +15,7 @@ variable "vpc_cidr" {
 variable "subnets" {
   description = "Subnets in different Availability Zones"
   type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24"]
+  default     = ["subnet-12345678", "subnet-87654321"]  # Ensure these are in different AZs
 }
 
 variable "instance_type" {
@@ -37,4 +37,9 @@ variable "allowed_ports" {
 variable "app_name" {
   description = "Name of the application"
   default     = "myapp"
+}
+
+variable "lb_subnets" {
+  description = "List of subnets for the load balancer"
+  type        = list(string)
 }

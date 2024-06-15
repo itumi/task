@@ -20,25 +20,10 @@ provider "aws" {
 resource "random_string" "suffix" {
   length  = 8
   special = false
+  upper   = false
 }
 
-# Data source to get the latest Amazon Linux 2 AMI
-data "aws_ami" "latest_amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-}
-
-# Create a new VPC
+# VPC
 resource "aws_vpc" "main" {
   cidr_block = var.vpc_cidr
 
@@ -47,62 +32,26 @@ resource "aws_vpc" "main" {
   }
 }
 
-# Create Internet Gateway
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name = "${var.app_name}-igw"
-  }
-}
-
-# Create Subnets
+# Subnets
 resource "aws_subnet" "main" {
-  count                   = length(var.subnets)
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = element(var.subnets, count.index)
-  map_public_ip_on_launch = true
+  count = length(var.subnets)
+  vpc_id     = aws_vpc.main.id
+  cidr_block = element(var.subnets, count.index)
 
   tags = {
     Name = "${var.app_name}-subnet-${count.index}"
   }
 }
 
-# Create Route Table
-resource "aws_route_table" "main" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-
-  tags = {
-    Name = "${var.app_name}-rt"
-  }
-}
-
-# Associate Route Table with Subnets
-resource "aws_route_table_association" "a" {
-  count          = length(var.subnets)
-  subnet_id      = element(aws_subnet.main[*].id, count.index)
-  route_table_id = aws_route_table.main.id
-}
-
 # Security Group
 resource "aws_security_group" "main" {
-  name        = var.security_group_name
-  description = "Allow web traffic"
-  vpc_id      = aws_vpc.main.id
+  vpc_id = aws_vpc.main.id
 
-  dynamic "ingress" {
-    for_each = var.allowed_ports
-    content {
-      from_port   = ingress.value
-      to_port     = ingress.value
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -113,38 +62,64 @@ resource "aws_security_group" "main" {
   }
 
   tags = {
-    Name = "${var.app_name}-sg"
+    Name = var.security_group_name
+  }
+}
+
+resource "aws_security_group" "lb_sg" {
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.app_name}-lb-sg"
   }
 }
 
 # Load Balancer
 resource "aws_lb" "app" {
-  name               = "${var.app_name}-lb-${random_string.suffix.result}"
+  name               = "myapp-lb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.main.id]
-  subnets            = aws_subnet.main[*].id
+  security_groups    = [aws_security_group.lb_sg.id]
+  subnets            = distinct(var.lb_subnets)
 
   enable_deletion_protection = false
 
   tags = {
-    Name = "${var.app_name}-lb"
+    Name = "myapp-lb"
   }
 }
 
 resource "aws_lb_target_group" "app" {
-  name     = "${var.app_name}-tg-${random_string.suffix.result}"
+  name     = "myapp-tg"
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
 
   health_check {
-    path     = "/"
-    protocol = "HTTP"
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 5
+    interval            = 30
+    path                = "/"
+    matcher             = "200-299"
   }
 
   tags = {
-    Name = "${var.app_name}-tg"
+    Name = "myapp-tg"
   }
 }
 
@@ -159,9 +134,9 @@ resource "aws_lb_listener" "app" {
   }
 }
 
-# IAM Role for Auto Scaling
+# IAM Role
 resource "aws_iam_role" "autoscaling_role" {
-  name = "autoscaling_role"
+  name = "autoscaling-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -169,25 +144,26 @@ resource "aws_iam_role" "autoscaling_role" {
       {
         Effect = "Allow"
         Principal = {
-          Service = "autoscaling.amazonaws.com"
+          Service = "ec2.amazonaws.com"
         }
         Action = "sts:AssumeRole"
-      }
+      },
     ]
   })
-}
-
-resource "aws_iam_role_policy_attachment" "autoscaling_policy_attachment" {
-  role       = aws_iam_role.autoscaling_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
 }
 
 resource "aws_iam_instance_profile" "autoscaling_instance_profile" {
   name = "autoscaling_instance_profile"
   role = aws_iam_role.autoscaling_role.name
+
+  lifecycle {
+    ignore_changes = [
+      name,
+    ]
+  }
 }
 
-# Auto Scaling Group
+# Launch Configuration
 resource "aws_launch_configuration" "app" {
   name          = "app-launch-config-${random_string.suffix.result}"
   image_id      = data.aws_ami.latest_amazon_linux.id
@@ -201,11 +177,12 @@ resource "aws_launch_configuration" "app" {
   }
 }
 
+# Auto Scaling Group
 resource "aws_autoscaling_group" "app" {
   desired_capacity          = 2
   max_size                  = 3
   min_size                  = 1
-  vpc_zone_identifier       = aws_subnet.main[*].id
+  vpc_zone_identifier       = var.subnets
   target_group_arns         = [aws_lb_target_group.app.arn]
   health_check_type         = "EC2"
   health_check_grace_period = 300
