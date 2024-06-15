@@ -7,9 +7,9 @@ variable "aws_s3_bucket" {
   description = "S3 Bucket for Zip"
 }
 
-variable "vpc_id" {
-  description = "ID of an existing VPC"
-  type        = string
+variable "vpc_cidr" {
+  description = "VPC CIDR"
+  default     = "10.0.0.0/16"
 }
 
 variable "subnets" {
