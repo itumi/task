@@ -55,7 +55,7 @@ resource "aws_security_group" "main" {
 # Launch Configuration
 resource "aws_launch_configuration" "app" {
   name          = "app-launch-configuration"
-  image_id      = var.ami_id
+  image_id      = var.aws_ami_id
   instance_type = var.instance_type
   security_groups = [aws_security_group.main.id]
 

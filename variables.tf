@@ -52,7 +52,7 @@ variable "desired_capacity" {
   default     = 1
 }
 
-variable "ami_id" {
+variable "aws_ami_id" {
   description = "AMI ID for the instances"
   type        = string
 }
