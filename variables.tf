@@ -18,6 +18,12 @@ variable "subnets" {
   default     = ["10.0.1.0/24", "10.0.2.0/24"]
 }
 
+variable "azs" {
+  description = "Availability Zones"
+  type        = list(string)
+  default     = ["us-west-2a", "us-west-2b"]
+}
+
 variable "instance_type" {
   description = "EC2 instance type"
   default     = "t2.micro"
@@ -32,4 +38,8 @@ variable "allowed_ports" {
   description = "List of allowed ports for the security group"
   type        = list(number)
   default     = [80, 443]
+}
+
+variable "ami_id" {
+  description = "AMI ID for the EC2 instances"
 }
