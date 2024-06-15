@@ -6,8 +6,8 @@ terraform {
     }
   }
   backend "s3" {
-    bucket = "la-pa"
-    region = "us-west-2"
+    bucket = var.aws_s3_bucket
+    region = var.aws_region
     key    = "terraform.tfstate"
   }
 }
@@ -193,7 +193,7 @@ resource "aws_autoscaling_group" "app" {
   desired_capacity          = 2
   max_size                  = 3
   min_size                  = 1
-  vpc_zone_identifier       = [aws_subnet.main[*].id]
+  vpc_zone_identifier       = aws_subnet.main[*].id
   target_group_arns         = [aws_lb_target_group.app.arn]
   health_check_type         = "EC2"
   health_check_grace_period = 300
