@@ -190,6 +190,9 @@ resource "aws_autoscaling_group" "app" {
   health_check_grace_period = 300
 
   launch_configuration = aws_launch_configuration.app.id
+
+  # Remove specific Availability Zones
+  # availability_zones = var.availability_zones
 }
 
 # Outputs
