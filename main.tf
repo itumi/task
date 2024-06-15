@@ -16,6 +16,17 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Data resource to get the latest Amazon Linux AMI
+data "aws_ami" "latest_amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+}
+
 # Random string for unique naming
 resource "random_string" "suffix" {
   length  = 8
@@ -94,7 +105,7 @@ resource "aws_lb" "app" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.lb_sg.id]
-  subnets            = distinct(var.lb_subnets)
+  subnets            = var.lb_subnets
 
   enable_deletion_protection = false
 
