@@ -33,3 +33,26 @@ variable "allowed_ports" {
   type        = list(number)
   default     = [80, 443]
 }
+
+variable "min_size" {
+  description = "Minimum number of instances in the Auto Scaling Group"
+  type        = number
+  default     = 1
+}
+
+variable "max_size" {
+  description = "Maximum number of instances in the Auto Scaling Group"
+  type        = number
+  default     = 3
+}
+
+variable "desired_capacity" {
+  description = "Desired number of instances in the Auto Scaling Group"
+  type        = number
+  default     = 1
+}
+
+variable "ami_id" {
+  description = "AMI ID for the instances"
+  default     = "ami-0c55b159cbfafe1f0"  # Amazon Linux 2 AMI
+}
