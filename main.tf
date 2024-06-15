@@ -159,14 +159,8 @@ resource "aws_lb_listener" "app" {
   }
 }
 
-# Check if the IAM Role exists
-data "aws_iam_role" "existing_autoscaling_role" {
-  name = "autoscaling_role"
-}
-
-# Create IAM Role for Auto Scaling if it doesn't exist
+# IAM Role for Auto Scaling
 resource "aws_iam_role" "autoscaling_role" {
-  count = length([for role in [data.aws_iam_role.existing_autoscaling_role] : role.name]) == 0 ? 1 : 0
   name = "autoscaling_role"
 
   assume_role_policy = jsonencode({
@@ -184,20 +178,13 @@ resource "aws_iam_role" "autoscaling_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "autoscaling_policy_attachment" {
-  role       = coalesce(data.aws_iam_role.existing_autoscaling_role.name, aws_iam_role.autoscaling_role[0].name)
+  role       = aws_iam_role.autoscaling_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
 }
 
-# Check if the instance profile exists
-data "aws_iam_instance_profile" "existing_autoscaling_instance_profile" {
-  name = "autoscaling_instance_profile"
-}
-
-# Create instance profile only if it doesn't exist
 resource "aws_iam_instance_profile" "autoscaling_instance_profile" {
-  count = length([for profile in [data.aws_iam_instance_profile.existing_autoscaling_instance_profile] : profile.name]) == 0 ? 1 : 0
   name = "autoscaling_instance_profile"
-  role = coalesce(data.aws_iam_role.existing_autoscaling_role.name, aws_iam_role.autoscaling_role[0].name)
+  role = aws_iam_role.autoscaling_role.name
 }
 
 # Auto Scaling Group
@@ -207,7 +194,7 @@ resource "aws_launch_configuration" "app" {
   instance_type = var.instance_type
 
   security_groups = [aws_security_group.main.id]
-  iam_instance_profile = length([for profile in [data.aws_iam_instance_profile.existing_autoscaling_instance_profile] : profile.name]) == 0 ? aws_iam_instance_profile.autoscaling_instance_profile[0].name : data.aws_iam_instance_profile.existing_autoscaling_instance_profile.name
+  iam_instance_profile = aws_iam_instance_profile.autoscaling_instance_profile.name
 
   lifecycle {
     create_before_destroy = true
