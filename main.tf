@@ -15,3 +15,50 @@ terraform {
 provider "aws" {
   region = var.aws_region
 }
+
+# VPC
+resource "aws_vpc" "main" {
+  cidr_block = var.vpc_cidr
+}
+
+# Subnets
+resource "aws_subnet" "main" {
+  count = length(var.subnets)
+  vpc_id = aws_vpc.main.id
+  cidr_block = element(var.subnets, count.index)
+}
+
+# Security Group
+resource "aws_security_group" "main" {
+  name        = var.security_group_name
+  description = "Allow web traffic"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port   = element(var.allowed_ports, count.index)
+    to_port     = element(var.allowed_ports, count.index)
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    count       = length(var.allowed_ports)
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Outputs
+output "vpc_id" {
+  value = aws_vpc.main.id
+}
+
+output "subnet_ids" {
+  value = aws_subnet.main[*].id
+}
+
+output "security_group_id" {
+  value = aws_security_group.main.id
+}
