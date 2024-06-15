@@ -17,6 +17,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+      AWS_AMI_ID: ${{ secrets.AWS_AMI_ID }}
 
     steps:
       - name: Checkout code
@@ -59,3 +60,4 @@ jobs:
         env:
           TF_VAR_aws_s3_bucket: ${{ secrets.AWS_S3_BUCKET }}
           TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
+          TF_VAR_aws_ami_id: ${{ secrets.AWS_AMI_ID }}
