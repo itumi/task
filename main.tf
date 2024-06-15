@@ -1,3 +1,17 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+  backend "s3" {
+    bucket = "la-pa"
+    region = "us-west-2"
+    key    = "terraform.tfstate"
+  }
+}
+
 provider "aws" {
   region = var.aws_region
 }
@@ -6,6 +20,22 @@ provider "aws" {
 resource "random_string" "suffix" {
   length  = 8
   special = false
+}
+
+# Data source to get the latest Amazon Linux 2 AMI
+data "aws_ami" "latest_amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
 }
 
 # VPC
