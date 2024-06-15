@@ -38,46 +38,16 @@ data "aws_ami" "latest_amazon_linux" {
   }
 }
 
-# VPC
-resource "aws_vpc" "main" {
-  cidr_block = var.vpc_cidr
-}
-
-# Internet Gateway
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-}
-
-# Subnets
-resource "aws_subnet" "main" {
-  count = length(var.subnets)
-  vpc_id = aws_vpc.main.id
-  cidr_block = element(var.subnets, count.index)
-  map_public_ip_on_launch = true
-}
-
-# Route Table
-resource "aws_route_table" "main" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-}
-
-# Route Table Association
-resource "aws_route_table_association" "a" {
-  count = length(var.subnets)
-  subnet_id = element(aws_subnet.main[*].id, count.index)
-  route_table_id = aws_route_table.main.id
+# Use an existing VPC
+data "aws_vpc" "main" {
+  id = var.vpc_id
 }
 
 # Security Group
 resource "aws_security_group" "main" {
   name        = var.security_group_name
   description = "Allow web traffic"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.main.id
 
   dynamic "ingress" {
     for_each = var.allowed_ports
@@ -103,7 +73,7 @@ resource "aws_lb" "app" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.main.id]
-  subnets            = aws_subnet.main[*].id
+  subnets            = var.subnets  # Ensure these are in different Availability Zones
 
   enable_deletion_protection = false
 }
@@ -112,7 +82,7 @@ resource "aws_lb_target_group" "app" {
   name     = "${var.app_name}-tg-${random_string.suffix.result}"
   port     = 80
   protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  vpc_id   = data.aws_vpc.main.id
 
   health_check {
     path     = "/"
@@ -132,7 +102,12 @@ resource "aws_lb_listener" "app" {
 }
 
 # IAM Role for Auto Scaling
+data "aws_iam_role" "existing_autoscaling_role" {
+  name = "autoscaling_role"
+}
+
 resource "aws_iam_role" "autoscaling_role" {
+  count = length([for role in [data.aws_iam_role.existing_autoscaling_role] : role.name]) == 0 ? 1 : 0
   name = "autoscaling_role"
 
   assume_role_policy = jsonencode({
@@ -150,7 +125,7 @@ resource "aws_iam_role" "autoscaling_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "autoscaling_policy_attachment" {
-  role       = aws_iam_role.autoscaling_role.name
+  role       = coalesce(data.aws_iam_role.existing_autoscaling_role.name, aws_iam_role.autoscaling_role[0].name)
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
 }
 
@@ -163,7 +138,7 @@ data "aws_iam_instance_profile" "existing_autoscaling_instance_profile" {
 resource "aws_iam_instance_profile" "autoscaling_instance_profile" {
   count = length([for profile in [data.aws_iam_instance_profile.existing_autoscaling_instance_profile] : profile.name]) == 0 ? 1 : 0
   name = "autoscaling_instance_profile"
-  role = aws_iam_role.autoscaling_role.name
+  role = coalesce(data.aws_iam_role.existing_autoscaling_role.name, aws_iam_role.autoscaling_role[0].name)
 }
 
 # Auto Scaling Group
@@ -184,24 +159,21 @@ resource "aws_autoscaling_group" "app" {
   desired_capacity          = 2
   max_size                  = 3
   min_size                  = 1
-  vpc_zone_identifier       = aws_subnet.main[*].id
+  vpc_zone_identifier       = var.subnets
   target_group_arns         = [aws_lb_target_group.app.arn]
   health_check_type         = "EC2"
   health_check_grace_period = 300
 
   launch_configuration = aws_launch_configuration.app.id
-
-  # Remove specific Availability Zones
-  # availability_zones = var.availability_zones
 }
 
 # Outputs
 output "vpc_id" {
-  value = aws_vpc.main.id
+  value = data.aws_vpc.main.id
 }
 
 output "subnet_ids" {
-  value = aws_subnet.main[*].id
+  value = var.subnets
 }
 
 output "security_group_id" {
