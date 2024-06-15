@@ -45,9 +45,9 @@ resource "aws_vpc" "main" {
 
 # Subnets
 resource "aws_subnet" "main" {
-  count = length(var.subnets)
+  count = length(var.vpc_subnets)
   vpc_id     = aws_vpc.main.id
-  cidr_block = element(var.subnets, count.index)
+  cidr_block = element(var.vpc_subnets, count.index)
 
   tags = {
     Name = "${var.app_name}-subnet-${count.index}"
@@ -105,7 +105,7 @@ resource "aws_lb" "app" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.lb_sg.id]
-  subnets            = var.lb_subnets
+  subnets            = var.lb_subnet_ids
 
   enable_deletion_protection = false
 
@@ -193,7 +193,7 @@ resource "aws_autoscaling_group" "app" {
   desired_capacity          = 2
   max_size                  = 3
   min_size                  = 1
-  vpc_zone_identifier       = var.subnets
+  vpc_zone_identifier       = [aws_subnet.main[*].id]
   target_group_arns         = [aws_lb_target_group.app.arn]
   health_check_type         = "EC2"
   health_check_grace_period = 300
