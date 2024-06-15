@@ -159,8 +159,14 @@ resource "aws_lb_listener" "app" {
   }
 }
 
-# IAM Role for Auto Scaling
+# Check if the IAM Role exists
+data "aws_iam_role" "existing_autoscaling_role" {
+  name = "autoscaling_role"
+}
+
+# Create IAM Role for Auto Scaling if it doesn't exist
 resource "aws_iam_role" "autoscaling_role" {
+  count = length([for role in [data.aws_iam_role.existing_autoscaling_role] : role.name]) == 0 ? 1 : 0
   name = "autoscaling_role"
 
   assume_role_policy = jsonencode({
@@ -178,7 +184,7 @@ resource "aws_iam_role" "autoscaling_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "autoscaling_policy_attachment" {
-  role       = aws_iam_role.autoscaling_role.name
+  role       = coalesce(data.aws_iam_role.existing_autoscaling_role.name, aws_iam_role.autoscaling_role[0].name)
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
 }
 
@@ -191,7 +197,7 @@ data "aws_iam_instance_profile" "existing_autoscaling_instance_profile" {
 resource "aws_iam_instance_profile" "autoscaling_instance_profile" {
   count = length([for profile in [data.aws_iam_instance_profile.existing_autoscaling_instance_profile] : profile.name]) == 0 ? 1 : 0
   name = "autoscaling_instance_profile"
-  role = aws_iam_role.autoscaling_role.name
+  role = coalesce(data.aws_iam_role.existing_autoscaling_role.name, aws_iam_role.autoscaling_role[0].name)
 }
 
 # Auto Scaling Group
