@@ -55,6 +55,14 @@ jobs:
         id: init
         run: terraform fmt && terraform init -upgrade
 
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan
+        env:
+          TF_VAR_aws_s3_bucket: ${{ secrets.AWS_S3_BUCKET }}
+          TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
+          TF_VAR_aws_ami_id: ${{ secrets.AWS_AMI_ID }}
+
       - name: Terraform Apply
         run: terraform apply -auto-approve
         env:
