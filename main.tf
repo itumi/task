@@ -24,12 +24,44 @@ resource "aws_vpc" "main" {
   }
 }
 
-# Subnets in different AZs
-resource "aws_subnet" "main" {
-  count = length(var.subnets)
+# Internet Gateway
+resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
-  cidr_block = element(var.subnets, count.index)
-  availability_zone = element(var.availability_zones, count.index)
+
+  tags = {
+    Name = "main-igw"
+  }
+}
+
+# Route Table
+resource "aws_route_table" "main" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = {
+    Name = "main-route-table"
+  }
+}
+
+# Associate route table with subnets
+resource "aws_route_table_association" "a" {
+  count = length(var.subnets)
+  subnet_id = element(aws_subnet.main[*].id, count.index)
+  route_table_id = aws_route_table.main.id
+}
+
+# Subnets in different AZs with public IP on launch
+resource "aws_subnet" "main" {
+  count                   = length(var.subnets)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = element(var.subnets, count.index)
+  availability_zone       = element(var.availability_zones, count.index)
+  map_public_ip_on_launch = true
+
   tags = {
     Name = "main-subnet-${count.index + 1}"
   }
