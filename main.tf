@@ -131,6 +131,34 @@ resource "aws_lb_listener" "app" {
   }
 }
 
+# IAM Role for Auto Scaling
+resource "aws_iam_role" "autoscaling_role" {
+  name = "autoscaling_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "autoscaling.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "autoscaling_policy_attachment" {
+  role       = aws_iam_role.autoscaling_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
+}
+
+resource "aws_iam_instance_profile" "autoscaling_instance_profile" {
+  name = "autoscaling_instance_profile"
+  role = aws_iam_role.autoscaling_role.name
+}
+
 # Auto Scaling Group
 resource "aws_launch_configuration" "app" {
   name          = "app-launch-config-${random_string.suffix.result}"
@@ -138,6 +166,7 @@ resource "aws_launch_configuration" "app" {
   instance_type = var.instance_type
 
   security_groups = [aws_security_group.main.id]
+  iam_instance_profile = aws_iam_instance_profile.autoscaling_instance_profile.name
 
   lifecycle {
     create_before_destroy = true
