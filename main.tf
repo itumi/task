@@ -111,6 +111,10 @@ resource "aws_security_group" "main" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "${var.app_name}-sg"
+  }
 }
 
 # Load Balancer
@@ -119,9 +123,13 @@ resource "aws_lb" "app" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.main.id]
-  subnets            = var.subnets  # Ensure these are in different Availability Zones
+  subnets            = aws_subnet.main[*].id
 
   enable_deletion_protection = false
+
+  tags = {
+    Name = "${var.app_name}-lb"
+  }
 }
 
 resource "aws_lb_target_group" "app" {
@@ -133,6 +141,10 @@ resource "aws_lb_target_group" "app" {
   health_check {
     path     = "/"
     protocol = "HTTP"
+  }
+
+  tags = {
+    Name = "${var.app_name}-tg"
   }
 }
 
@@ -148,12 +160,7 @@ resource "aws_lb_listener" "app" {
 }
 
 # IAM Role for Auto Scaling
-data "aws_iam_role" "existing_autoscaling_role" {
-  name = "autoscaling_role"
-}
-
 resource "aws_iam_role" "autoscaling_role" {
-  count = length([for role in [data.aws_iam_role.existing_autoscaling_role] : role.name]) == 0 ? 1 : 0
   name = "autoscaling_role"
 
   assume_role_policy = jsonencode({
@@ -171,20 +178,13 @@ resource "aws_iam_role" "autoscaling_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "autoscaling_policy_attachment" {
-  role       = coalesce(data.aws_iam_role.existing_autoscaling_role.name, aws_iam_role.autoscaling_role[0].name)
+  role       = aws_iam_role.autoscaling_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
 }
 
-# Check if the instance profile exists
-data "aws_iam_instance_profile" "existing_autoscaling_instance_profile" {
-  name = "autoscaling_instance_profile"
-}
-
-# Create instance profile only if it doesn't exist
 resource "aws_iam_instance_profile" "autoscaling_instance_profile" {
-  count = length([for profile in [data.aws_iam_instance_profile.existing_autoscaling_instance_profile] : profile.name]) == 0 ? 1 : 0
   name = "autoscaling_instance_profile"
-  role = coalesce(data.aws_iam_role.existing_autoscaling_role.name, aws_iam_role.autoscaling_role[0].name)
+  role = aws_iam_role.autoscaling_role.name
 }
 
 # Auto Scaling Group
@@ -194,7 +194,7 @@ resource "aws_launch_configuration" "app" {
   instance_type = var.instance_type
 
   security_groups = [aws_security_group.main.id]
-  iam_instance_profile = length([for profile in [data.aws_iam_instance_profile.existing_autoscaling_instance_profile] : profile.name]) == 0 ? aws_iam_instance_profile.autoscaling_instance_profile[0].name : data.aws_iam_instance_profile.existing_autoscaling_instance_profile.name
+  iam_instance_profile = aws_iam_instance_profile.autoscaling_instance_profile.name
 
   lifecycle {
     create_before_destroy = true
@@ -205,12 +205,18 @@ resource "aws_autoscaling_group" "app" {
   desired_capacity          = 2
   max_size                  = 3
   min_size                  = 1
-  vpc_zone_identifier       = var.subnets
+  vpc_zone_identifier       = aws_subnet.main[*].id
   target_group_arns         = [aws_lb_target_group.app.arn]
   health_check_type         = "EC2"
   health_check_grace_period = 300
 
   launch_configuration = aws_launch_configuration.app.id
+
+  tag {
+    key                 = "Name"
+    value               = "${var.app_name}-asg"
+    propagate_at_launch = true
+  }
 }
 
 # Outputs
@@ -219,7 +225,7 @@ output "vpc_id" {
 }
 
 output "subnet_ids" {
-  value = var.subnets
+  value = aws_subnet.main[*].id
 }
 
 output "security_group_id" {

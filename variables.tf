@@ -15,7 +15,7 @@ variable "vpc_cidr" {
 variable "subnets" {
   description = "Subnets in different Availability Zones"
   type        = list(string)
-  default     = ["subnet-12345678", "subnet-87654321"]  # Ensure these are in different Availability Zones
+  default     = ["10.0.1.0/24", "10.0.2.0/24"]
 }
 
 variable "instance_type" {
