@@ -93,7 +93,7 @@ resource "aws_route_table_association" "a" {
 resource "aws_security_group" "main" {
   name        = var.security_group_name
   description = "Allow web traffic"
-  vpc_id      = data.aws_vpc.main.id
+  vpc_id      = aws_vpc.main.id
 
   dynamic "ingress" {
     for_each = var.allowed_ports
@@ -128,7 +128,7 @@ resource "aws_lb_target_group" "app" {
   name     = "${var.app_name}-tg-${random_string.suffix.result}"
   port     = 80
   protocol = "HTTP"
-  vpc_id   = data.aws_vpc.main.id
+  vpc_id   = aws_vpc.main.id
 
   health_check {
     path     = "/"
@@ -215,7 +215,7 @@ resource "aws_autoscaling_group" "app" {
 
 # Outputs
 output "vpc_id" {
-  value = data.aws_vpc.main.id
+  value = aws_vpc.main.id
 }
 
 output "subnet_ids" {
