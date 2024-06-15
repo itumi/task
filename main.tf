@@ -34,12 +34,14 @@ resource "aws_security_group" "main" {
   description = "Allow web traffic"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    from_port   = element(var.allowed_ports, count.index)
-    to_port     = element(var.allowed_ports, count.index)
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    count       = length(var.allowed_ports)
+  dynamic "ingress" {
+    for_each = var.allowed_ports
+    content {
+      from_port   = ingress.value
+      to_port     = ingress.value
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
   }
 
   egress {
