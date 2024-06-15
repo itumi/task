@@ -54,5 +54,5 @@ variable "desired_capacity" {
 
 variable "ami_id" {
   description = "AMI ID for the instances"
-  default     = "ami-0c55b159cbfafe1f0"  # Amazon Linux 2 AMI
+  default     = "ami-0f226ae5ce4b11922"
 }
