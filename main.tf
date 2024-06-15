@@ -16,6 +16,11 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Fetch the latest Amazon Linux 2 AMI ID using SSM
+data "aws_ssm_parameter" "ami_id" {
+  name = "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+}
+
 # VPC
 resource "aws_vpc" "main" {
   cidr_block = var.vpc_cidr
@@ -52,6 +57,33 @@ resource "aws_security_group" "main" {
   }
 }
 
+# Launch Configuration
+resource "aws_launch_configuration" "app" {
+  name          = "app-launch-configuration"
+  image_id      = data.aws_ssm_parameter.ami_id.value
+  instance_type = var.instance_type
+  security_groups = [aws_security_group.main.id]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Auto Scaling Group
+resource "aws_autoscaling_group" "app" {
+  launch_configuration = aws_launch_configuration.app.id
+  vpc_zone_identifier  = aws_subnet.main[*].id
+  min_size             = var.min_size
+  max_size             = var.max_size
+  desired_capacity     = var.desired_capacity
+
+  tag {
+    key                 = "Name"
+    value               = "app-instance"
+    propagate_at_launch = true
+  }
+}
+
 # Outputs
 output "vpc_id" {
   value = aws_vpc.main.id
@@ -63,4 +95,8 @@ output "subnet_ids" {
 
 output "security_group_id" {
   value = aws_security_group.main.id
+}
+
+output "autoscaling_group_id" {
+  value = aws_autoscaling_group.app.id
 }

@@ -33,3 +33,18 @@ variable "allowed_ports" {
   type        = list(number)
   default     = [80, 443]
 }
+
+variable "min_size" {
+  description = "Minimum size of the Auto Scaling group"
+  default     = 1
+}
+
+variable "max_size" {
+  description = "Maximum size of the Auto Scaling group"
+  default     = 3
+}
+
+variable "desired_capacity" {
+  description = "Desired capacity of the Auto Scaling group"
+  default     = 1
+}
