@@ -160,14 +160,19 @@ resource "aws_iam_role_policy" "s3_access" {
   role   = aws_iam_role.ec2_role.id
 
   policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Action = [
-        "s3:GetObject",
-      ],
-      Effect   = "Allow",
-      Resource = "arn:aws:s3:::la-pa/*"
-    }]
+    Version: "2012-10-17",
+    Statement: [
+      {
+        Effect: "Allow",
+        Action: "s3:ListBucket",
+        Resource: "arn:aws:s3:::${var.aws_s3_bucket}"
+      },
+      {
+        Effect: "Allow",
+        Action: "s3:GetObject",
+        Resource: "arn:aws:s3:::${var.aws_s3_bucket}/*"
+      }
+    ]
   })
 }
 
@@ -189,10 +194,12 @@ resource "aws_launch_template" "app" {
 
   user_data = base64encode(<<-EOF
               #!/bin/bash
-              yum update -y
-              yum install -y nginx aws-cli
-              aws s3 cp s3://${var.aws_s3_bucket}/ /usr/share/nginx/html/ --recursive
-              systemctl start nginx
+              sudo yum update -y
+              sudo amazon-linux-extras install nginx1 -y
+              sudo yum install -y aws-cli
+              sudo mkdir -p /usr/share/nginx/html/
+              sudo aws s3 cp s3://${var.aws_s3_bucket}/ /usr/share/nginx/html/ --recursive
+              sudo systemctl start nginx
               EOF
   )
 
