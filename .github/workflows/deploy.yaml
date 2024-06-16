@@ -39,10 +39,14 @@ jobs:
           cd Landing-page-react
           zip -r react_build.zip build
 
-      - name: Deploy to EC2
-        run: |
-          scp -o StrictHostKeyChecking=no -i ${{ secrets.AWS_KEY_PATH }} Landing-page-react/react_build.zip ec2-user@${{ secrets.EC2_PUBLIC_IP }}:/home/ec2-user/
-          ssh -o StrictHostKeyChecking=no -i ${{ secrets.AWS_KEY_PATH }} ec2-user@${{ secrets.EC2_PUBLIC_IP }} "sudo unzip /home/ec2-user/react_build.zip -d /var/www/html/"
+      - name: Push React build to S3
+        uses: jakejarvis/s3-sync-action@v0.3.1
+        with:
+          args: --acl public-read --follow-symlinks --delete
+        env:
+          SOURCE_DIR: 'Landing-page-react/build'
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -55,11 +59,13 @@ jobs:
         id: plan
         run: terraform plan
         env:
+          TF_VAR_aws_s3_bucket: ${{ secrets.AWS_S3_BUCKET }}
           TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
           TF_VAR_aws_ami_id: ${{ secrets.AWS_AMI_ID }}
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
         env:
+          TF_VAR_aws_s3_bucket: ${{ secrets.AWS_S3_BUCKET }}
           TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
           TF_VAR_aws_ami_id: ${{ secrets.AWS_AMI_ID }}
