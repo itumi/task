@@ -140,21 +140,59 @@ resource "aws_lb_listener" "front_end" {
   }
 }
 
+resource "aws_iam_role" "ec2_role" {
+  name = "ec2_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action = "sts:AssumeRole",
+      Effect = "Allow",
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "s3_access" {
+  name   = "s3_access"
+  role   = aws_iam_role.ec2_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action = [
+        "s3:GetObject",
+      ],
+      Effect   = "Allow",
+      Resource = "arn:aws:s3:::la-pa/*"
+    }]
+  })
+}
+
+resource "aws_iam_instance_profile" "instance_profile" {
+  name = "instance_profile"
+  role = aws_iam_role.ec2_role.name
+}
+
+
 # Launch Template
 resource "aws_launch_template" "app" {
   name_prefix   = "app-template"
   image_id      = var.aws_ami_id
   instance_type = var.instance_type
   vpc_security_group_ids = [aws_security_group.main.id]
+  iam_instance_profile {
+    name = aws_iam_instance_profile.instance_profile.name
+  }
 
   user_data = base64encode(<<-EOF
               #!/bin/bash
-              sudo apt-get update
-              sudo apt-get install -y nginx awscli
-              aws s3 cp s3://${var.aws_s3_bucket}/react_build.zip /tmp/react_build.zip
-              sudo apt-get install -y unzip
-              unzip /tmp/react_build.zip -d /usr/share/nginx/html/
-              sudo service nginx start
+              yum update -y
+              yum install -y nginx aws-cli
+              aws s3 cp s3://${var.aws_s3_bucket}/ /usr/share/nginx/html/ --recursive
+              systemctl start nginx
               EOF
   )
 
