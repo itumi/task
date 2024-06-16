@@ -1,54 +1,36 @@
-AWS Deployment with Terraform
+Comment
+
+Tried to build the infra as automated and as easy to conf as possible, 
+this code could be improved by making checks for everything before creating, 
+but for first time setup the checks are not needed.
+For larger scale projects the code could be modulated (modules/vpc/main.tf etc.)
 
 Overview
 
-This project deploys a simple static application using AWS and Terraform. 
-The infrastructure includes a VPC, subnets, security groups, an internet gateway, a route table, a load balancer, and an auto-scaling group. 
+This project deploys a simple static application using AWS and Terraform.
 The application is deployed using GitHub Actions to automate the process.
+The infrastructure includes:
+    - VPC, 
+    - subnets
+    - security groups
+    - internet gateway
+    - route table
+    - load balancer
+    - auto-scaling group
 
 Prerequisites
 
-- AWS user policies:
-    AmazonAPIGatewayAdministrator
-    AmazonDynamoDBFullAccess
-    AmazonEC2FullAccess
-    AmazonS3FullAccess
-    AmazonVPCFullAccess
-    AWSLambda_FullAccess
-    CloudWatchFullAccess
-    IAMFullAccess
-- Github Secrets:
-    AWS_ACCESS_KEY_ID
-    AWS_SECRET_ACCESS_KEY
-    AWS_AMI_ID
-    AWS_REGION
-    AWS_S3_BUCKET
-
-Setup
-
-Clone the Repository
-
-git clone https://github.com/your-repo/your-project.git
-cd your-project
-
-Configure AWS Credentials
-
-Ensure your AWS CLI is configured with the necessary access keys and permissions. You can do this by running:
-
-aws configure
-
-Initialize Terraform
-
-Navigate to the project directory and initialize Terraform:
-
-terraform init
-
-Plan and Apply Terraform Configuration
-
-Plan the infrastructure changes and apply them:
-
-terraform plan
-terraform apply -auto-approve
+- AWS CLI: Installed and configured with appropriate permissions (permissions given from gui for now):
+    - AmazonEC2FullAccess
+    - AmazonS3FullAccess
+    - AmazonVPCFullAccess
+    - IAMFullAccess
+- GitHub repository secrets:
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
+    - AWS_REGION
+    - AWS_S3_BUCKET
+    - AWS_AMI_ID
 
 Deployment
 
@@ -63,18 +45,17 @@ The workflow performs the following steps:
 4. Archives the build artifacts and uploads them to an S3 bucket.
 5. Initializes Terraform and applies the configuration.
 
-Secrets
-
-Ensure the following secrets are set in your GitHub repository:
-- AWS_ACCESS_KEY_ID
-- AWS_SECRET_ACCESS_KEY
-- AWS_REGION
-- AWS_S3_BUCKET
-- AWS_AMI_ID
-
 Variables
 
 The following variables are defined in variables.tf to make the infrastructure configurable:
 
 - aws_region: The AWS region to deploy in (default: us-west-2).
-- vpc_cidr: The CIDR block for t
+- vpc_cidr: The CIDR block for the VPC (default: 10.0.0.0/16).
+- subnets: A list of subnet CIDR blocks (default: ["10.0.1.0/24", "10.0.2.0/24"]).
+- availability_zones: A list of availability zones (default: ["us-west-2a", "us-west-2b"]).
+- security_group_name: The name of the security group (default: main-sg).
+
+High Availability and Scalability
+
+- Auto-Scaling Group: Configured to run across multiple availability zones with a minimum of 1 instance, a maximum of 3 instances, and a desired capacity of 2 instances.
+- Load Balancer: Distributes traffic across instances in multiple availability zones.
